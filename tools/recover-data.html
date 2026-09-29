@@ -1,0 +1,113 @@
+<!doctype html>
+<!--
+  Data-recovery page for the pre-Supabase build.
+
+  localStorage is scoped per origin, so data written by the old Vite app at
+  http://localhost:5173 is invisible to the Next.js app at http://localhost:3000.
+  Serving THIS file on the OLD port lets the browser hand the data back:
+
+      npx serve tools -l 5173      (or: python3 -m http.server 5173 -d tools)
+      open http://localhost:5173/recover-data.html
+
+  Then upload the downloaded file at http://localhost:3000/impor
+-->
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pemulihan Data Daily Tracker</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px;
+      font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: #fafafa; color: #171717;
+    }
+    @media (prefers-color-scheme: dark) { body { background: #0a0a0a; color: #f5f5f5; } }
+    .card {
+      width: 100%; max-width: 440px; padding: 28px;
+      border: 1px solid #e5e5e5; border-radius: 16px; background: #fff;
+    }
+    @media (prefers-color-scheme: dark) { .card { background: #171717; border-color: #303030; } }
+    h1 { font-size: 1.15rem; margin: 0 0 6px; }
+    p { margin: 0 0 14px; color: #666; font-size: .925rem; }
+    @media (prefers-color-scheme: dark) { p { color: #a3a3a3; } }
+    ul { margin: 0 0 18px; padding: 0; list-style: none; }
+    li { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f0f0f0; font-size: .9rem; }
+    @media (prefers-color-scheme: dark) { li { border-color: #262626; } }
+    li b { font-variant-numeric: tabular-nums; }
+    button {
+      width: 100%; padding: 11px 16px; border: 0; border-radius: 12px; cursor: pointer;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff;
+      font: inherit; font-weight: 600;
+    }
+    button:hover { filter: brightness(1.08); }
+    .bad { color: #e11d48; }
+    code { background: #f0f0f0; padding: 1px 5px; border-radius: 4px; font-size: .85em; }
+    @media (prefers-color-scheme: dark) { code { background: #262626; } }
+  </style>
+</head>
+<body>
+  <div class="card" id="root">Memeriksa penyimpanan browser…</div>
+
+  <script>
+    const KEY = 'daily-tracker:data:v1'
+    const root = document.getElementById('root')
+
+    function esc(s) {
+      return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+    }
+
+    const raw = localStorage.getItem(KEY)
+
+    if (!raw) {
+      const keys = Object.keys(localStorage).filter((k) => k.startsWith('daily-tracker'))
+      root.innerHTML =
+        '<h1 class="bad">Tidak ada data di alamat ini</h1>' +
+        '<p>Kunci <code>' + KEY + '</code> tidak ditemukan di <code>' + esc(location.origin) + '</code>.</p>' +
+        '<p>Data lama tersimpan per alamat. Kalau dulu aplikasinya dibuka di port lain, ' +
+        'sajikan halaman ini di port itu lalu buka lagi.</p>' +
+        (keys.length
+          ? '<p>Kunci Daily Tracker yang ada di sini: <code>' + keys.map(esc).join('</code>, <code>') + '</code></p>'
+          : '<p>Tidak ada kunci Daily Tracker sama sekali di alamat ini.</p>')
+    } else {
+      let data
+      try {
+        data = JSON.parse(raw)
+      } catch (e) {
+        root.innerHTML = '<h1 class="bad">Data ditemukan tapi rusak</h1><p>' + esc(e.message) + '</p>'
+        throw e
+      }
+
+      const rows = [
+        ['Kategori', (data.categories || []).length],
+        ['Task', (data.tasks || []).length],
+        ['Counter', (data.counters || []).length],
+        ['Bahan makanan', (data.foods || []).length],
+        ['Hari tercatat', Object.keys(data.days || {}).length],
+        ['Minggu workout', Object.keys(data.weeks || {}).length],
+        ['Transaksi', (data.transactions || []).length],
+        ['Hutang', (data.debts || []).length],
+        ['Transaksi investasi', (data.investments || []).length],
+      ].filter((r) => r[1] > 0)
+
+      root.innerHTML =
+        '<h1>Data lama ditemukan</h1>' +
+        '<p>Tersimpan di <code>' + esc(location.origin) + '</code>, ukuran ' +
+        (raw.length / 1024).toFixed(1) + ' KB.</p>' +
+        '<ul>' + rows.map((r) => '<li><span>' + r[0] + '</span><b>' + r[1] + '</b></li>').join('') + '</ul>' +
+        '<button id="dl">Unduh data-lama.json</button>' +
+        '<p style="margin-top:14px">Setelah terunduh, buka <code>localhost:3000/impor</code> dan unggah file itu.</p>'
+
+      document.getElementById('dl').onclick = () => {
+        const blob = new Blob([raw], { type: 'application/json' })
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(blob)
+        a.download = 'data-lama.json'
+        a.click()
+        URL.revokeObjectURL(a.href)
+      }
+    }
+  </script>
+</body>
+</html>
